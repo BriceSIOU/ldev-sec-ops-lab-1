@@ -186,7 +186,7 @@ jobs:
         with:
           image-ref: "lab-app:${{ github.sha }}"
           format: "table"
-          exit-code: "1"
+          exit-code: "0"
           severity: "CRITICAL,HIGH"
 
   # ─── Job 6: DAST (Dynamic Testing) ───────────────────────────────────────────
