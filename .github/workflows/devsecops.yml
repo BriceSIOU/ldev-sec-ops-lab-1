@@ -2,7 +2,7 @@ name: DevSecOps CI/CD Pipeline
 
 on:
   push:
-    branches: [main,insecure-app]
+    branches: [main, insecure-app]
   pull_request:
     branches: [main]
 
@@ -28,7 +28,8 @@ jobs:
 
       - name: Run Bandit SAST
         run: |
-          bandit -r code/session1/app_secure.py \
+          # Le scan pointe vers le dossier part1
+          bandit -r part1/app_secure.py \
             -f json \
             -o bandit_report.json \
             --severity-level medium \
@@ -74,7 +75,7 @@ jobs:
       - name: Check dependencies for CVEs
         run: |
           safety check \
-            -r code/session1/requirements.txt \
+            -r part1/requirements.txt \
             --json \
             --output safety_report.json || true
           
@@ -114,12 +115,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r code/session1/requirements.txt
-          pip install pytest pytest-flask
+          pip install -r part1/requirements.txt
+          pip install pytest pytest-flask flask-wtf
 
       - name: Run security tests
         run: |
-          cd code/session2
+          cd part2
           pytest test_security.py -v \
             --tb=short \
             --junitxml=security_test_results.xml
@@ -129,7 +130,7 @@ jobs:
         if: always()
         with:
           name: security-test-results
-          path: code/session2/security_test_results.xml
+          path: part2/security_test_results.xml
 
   # ─── Job 4: Secret Scanning ──────────────────────────────────────────────────
   secret-scan:
@@ -138,7 +139,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for gitleaks
+          fetch-depth: 0
 
       - name: Install gitleaks
         run: |
@@ -158,7 +159,7 @@ jobs:
               exit 1
             }
 
-  # ─── Job 5: Container Security Scan (if Dockerfile present) ─────────────────
+  # ─── Job 5: Container Security Scan ──────────────────────────────────────────
   container-scan:
     name: 🐳 Container Security Scan
     runs-on: ubuntu-latest
@@ -168,7 +169,7 @@ jobs:
       - name: Check for Dockerfile
         id: dockerfile-check
         run: |
-          if [ -f Dockerfile ]; then
+          if [ -f part3/Dockerfile ]; then
             echo "found=true" >> $GITHUB_OUTPUT
           else
             echo "found=false" >> $GITHUB_OUTPUT
@@ -176,7 +177,7 @@ jobs:
 
       - name: Build Docker image
         if: ${{ steps.dockerfile-check.outputs.found == 'true' }}
-        run: docker build -t lab-app:${{ github.sha }} .
+        run: docker build -t lab-app:${{ github.sha }} ./part3
 
       - name: Run Trivy container scan
         if: ${{ steps.dockerfile-check.outputs.found == 'true' }}
@@ -187,7 +188,7 @@ jobs:
           exit-code: "1"
           severity: "CRITICAL,HIGH"
 
-  # ─── Job 6: DAST (Dynamic Testing) - only on non-prod branches ───────────────
+  # ─── Job 6: DAST (Dynamic Testing) ───────────────────────────────────────────
   dast:
     name: 🌐 DAST - OWASP ZAP
     runs-on: ubuntu-latest
@@ -198,8 +199,8 @@ jobs:
 
       - name: Start Flask app
         run: |
-          pip install -r code/session1/requirements.txt
-          SECRET_KEY=testkey python code/session1/app_secure.py &
+          pip install -r part1/requirements.txt
+          SECRET_KEY=testkey python part1/app_secure.py &
           sleep 3
           curl -f http://127.0.0.1:5001/ || exit 1
 
@@ -217,7 +218,7 @@ jobs:
           name: zap-report
           path: report_html.html
 
-  # ─── Job 7: Security Gate - Block merge if critical findings ─────────────────
+  # ─── Job 7: Security Gate ────────────────────────────────────────────────────
   security-gate:
     name: 🚦 Security Gate
     runs-on: ubuntu-latest
