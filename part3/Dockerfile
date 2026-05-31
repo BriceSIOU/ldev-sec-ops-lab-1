@@ -5,6 +5,8 @@
 
 # Stage 1: Build dependencies
 FROM python:3.11-slim AS builder
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel jaraco.context
 
 WORKDIR /build
 
@@ -15,6 +17,8 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Stage 2: Production image (minimal attack surface)
 FROM python:3.11-slim AS production
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel jaraco.context
 
 # Security: Create non-root user
 RUN groupadd -r appgroup && useradd -r -g appgroup -d /app -s /sbin/nologin appuser
